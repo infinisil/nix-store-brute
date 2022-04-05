@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+target=$1
+targetLength=${#target}
+
+mkdir -p hits/"$target"
+
+declare -a fortunes
+fortune=""
+
+while read -r line; do
+  if [[ "$line" == "%" ]]; then
+    fortunes+=( "$fortune" )
+    fortune=""
+  else
+    fortune+="$line"$'\n'
+  fi
+done < fortunes
+
+fortuneCount=${#fortunes[@]}
+
+generateText() {
+  local n=$1
+  if [[ "$n" -lt "$fortuneCount" ]]; then
+    echo "${fortunes[$n]}"
+    echo ""
+    return 0
+  else
+    next=$(( n / fortuneCount ))
+    current=$(( n % fortuneCount ))
+    echo "${fortunes[$current]}"
+    echo "========================================="
+    echo ""
+    generateText "$next"
+  fi
+}
+
+period=$2
+phase=$3
+n="$phase"
+while true; do
+  fortune=$(generateText "$n")
+  result=$(nix-instantiate --eval -A outPath --argstr name "$target" --argstr fortune "$fortune")
+  prefix=${result:12:$targetLength}
+  if [[ "$prefix" == "$target" ]]; then
+    echo "Successfully found target in path $result with try n = $n, saving fortune to hits/$target/$n"
+    echo "$fortune" > hits/"$target"/"$n"
+    exit 0
+  fi
+  echo "No hit for n = $n"
+  n=$(( n + $period ))
+done

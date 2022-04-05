@@ -1,0 +1,28 @@
+#!/usr/bin/env nix-shell
+#!nix-shell -i bash -p fortune which nix --pure --keep NIX_PATH
+
+set -euo pipefail
+
+target=$1
+
+if ! grep -qE "^[0-9a-df-np-sv-z]+$" <<< "$target"; then
+  echo "Target word $target is not a valid store path prefix" >&2
+  exit 1
+fi
+
+targetLength=${#target}
+period=$2
+
+
+echo "Brute forcing a store path with prefix \"$target\"" >&2
+echo "The prefix length $targetLength means that on average 32^$targetLength = $(( 32 ** targetLength )) tries are necessary" >&2
+echo "Using $period cores in parallel" >&2
+sleep 2
+
+trap 'kill $(jobs -p)' exit
+
+for i in $(seq 0 $(( period - 1))); do
+  ./generate "$target" "$period" "$i" &
+done
+
+wait -n
